@@ -26,10 +26,29 @@ library(htmlwidgets)
 
 ```{r}
 Shared_Surface_TCR<-read.csv('Y:/Files/JHU/Labs/Git_Repos/COVID19_Cross_Reference/Data/Output/M1_Common_Surface.csv')
+M1_VDJdb<-read.csv('Y:/Files/JHU/Labs/Git_Repos/COVID19_Cross_Reference/Data/InfluenzaA.tsv',
+                  sep = '\t')
+Shared_M1_TCR<-M1_VDJdb[M1_VDJdb$CDR3 %in% Shared_Surface_TCR$cdr3b,]
+Shared_M1_TCR<-Shared_M1_TCR[Shared_M1_TCR$Epitope.gene=='M'|Shared_M1_TCR$Epitope.gene=='M1',]
 ```
+Further prune the VDJ data. Some of the V genes in VDJ data like V19*01 should be corrected to V19-01
+```{r}
+for(i in 1:nrow(Shared_M1_TCR)){
+  gene<-Shared_M1_TCR$V[i]
+  if(grepl("*", Shared_M1_TCR$V[i], fixed = TRUE) & !grepl("-", Shared_M1_TCR$V[i], fixed = TRUE)){
+    Shared_M1_TCR$V[i]<-gsub("*","-",Shared_M1_TCR$V[i],fixed = T)
+  }
+}
+```
+```{r}
+Shared_Surface_TCR$V<-gsub("TCRB","TRB",Shared_Surface_TCR$V,fixed = T)
+Shared_Surface_TCR$J<-gsub("TCRB","TRB",Shared_Surface_TCR$J,fixed = T)
+```
+
 # Plot VJ-genes Usage
 First calculate a VJ adjacency matrix
 ```{r}
+# Adjacency matrix for Adaptive COVID TCR
 Shared_Surface_TCR[Shared_Surface_TCR==""] <-"N.A." 
 V_list<-unique(Shared_Surface_TCR$V)
 J_list<-unique(Shared_Surface_TCR$J)
@@ -42,10 +61,24 @@ for (vgene in V_list) {
     ad_mtx[vgene,jgene] <-nrow(temp_df)
   }
 }
+
+# Adjacency matrix for M1 VDJdb TCR
+Shared_M1_TCR[Shared_M1_TCR==""] <-"N.A." 
+V_list_M1<-unique(Shared_M1_TCR$V)
+J_list_M1<-unique(Shared_M1_TCR$J)
+ad_mtx_M1<-matrix(0,length(V_list_M1),length(J_list_M1)) #Rows-->V; Columns-->J
+rownames(ad_mtx_M1)<-V_list_M1
+colnames(ad_mtx_M1)<-J_list_M1
+for (vgene in V_list_M1) {
+  for (jgene in J_list_M1) {
+    temp_df<-filter(Shared_M1_TCR,V ==vgene & J == jgene)
+    ad_mtx_M1[vgene,jgene] <-nrow(temp_df)
+  }
+}
 ```
 To plot chord diagrams, we can generate a uniform color vector for the V/J genes.
 ```{r}
-VJ_genes<-c(V_list,J_list)
+VJ_genes<-unique(c(V_list,J_list,V_list_M1,J_list_M1))
 col_VJ<-rand_color( length(VJ_genes),luminosity = 'dark')
 names(col_VJ)<-VJ_genes
 ```
@@ -79,7 +112,41 @@ png(file = "VJ_Usage.png", width = 1800, height = 1800)
     },
     bg.border = NA
   )
-  title(main = list("VJ Gene Usage--331 Cross-Reactive TCRs to \n SARS-CoV2 Spike Protein and M1",cex = 4), outer = F, line = -6)
+  title(main = list("VJ Gene Usage--331 Cross-Reactive COVID TCRs to \n SARS-CoV2 Spike Protein and InfluenzaA",cex = 4), outer = F, line = -6)
+  abline(h = 0.02, lty = 2, col = "#00000080",lwd = 2)
+  circos.clear()
+  dev.off()
+```
+```{r}
+png(file = "VJ_Usage_InfluenzaA_TCR.png", width = 1800, height = 1800)
+  par(mar=c(3,3,4,0))
+  grid_col <- col_VJ[c(rownames(ad_mtx_M1),colnames(ad_mtx_M1))] 
+  chordDiagram(ad_mtx_M1,
+               annotationTrack = "grid",
+              # big.gap = 10,
+               preAllocateTracks = 2,
+               grid.col = grid_col)
+    
+  circos.trackPlotRegion(
+    track.index = 1,
+    panel.fun = function(x, y) {
+      xlim = get.cell.meta.data("xlim")
+      ylim = get.cell.meta.data("ylim")
+      sector.name = get.cell.meta.data("sector.index")
+      circos.text(
+        mean(xlim),
+        ylim[1] - 1,
+        sector.name,
+        facing = "clockwise",
+        niceFacing = TRUE,
+        adj = c(0, 0.5),
+        col = "#444541",
+        cex = 2
+      )
+    },
+    bg.border = NA
+  )
+  title(main = list("VJ Gene Usage--1296 Cross-Reactive M1 TCRs to \n SARS-CoV2 Spike Protein and Influenza A",cex = 4), outer = F, line = -6)
   abline(h = 0.02, lty = 2, col = "#00000080",lwd = 2)
   circos.clear()
   dev.off()
