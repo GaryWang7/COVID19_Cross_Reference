@@ -5,7 +5,8 @@
 ## Nov 1th, 2021, revised by Gary Wang so that this script can be ran on Windows Anaconda with Python3
 ## Ultra-fast alignment version for iSMART, based on motif finding, July 15th, 2018
 ## Motif-guided iSMART (MiSMART) is suitable for analyzing large scale (500K-1M) sequence datasets.
-## cmd line: python iSMARTv3_Rev1.py -f All_iSMART.tsv -v -t 8
+## Modified by Hanzhi Wang to run on Python3
+## cmd line: python iSMARTv3_Rev1.py -f M1_MART1_TSCAN_iSMART.tsv -v -t 7.5
 import numpy as np
 from Bio import pairwise2
 from Bio.SubsMat.MatrixInfo import blosum62

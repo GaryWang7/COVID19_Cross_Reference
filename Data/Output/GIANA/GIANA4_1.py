@@ -20,8 +20,8 @@
 # # July 16, 2020: Change name into GIANA: Geometric Isometry based ANtigen-specific tcr Alignment # Aug 24,
 # 2020: Add GPU option # Sep 26, 2020: Find a bug in identical CDR3 handling when V genes are different # Dec 8,
 # 2021: (Local user Gary) Remove the resource package since it is only run on linux. Replace it with psutil in the
-# future. Renamed the file as GIANA4_1 instead of GIANA4.1 due to importing issues # cmd: python GIANA4_1.py -f
-# all_GIANA.tsv -v -S 3.2 -M
+# future. Renamed the file as GIANA4_1 instead of GIANA4.1 due to importing issues
+# cmd: python GIANA4_1.py -f M1_MART1_TSCAN_GIANA.tsv -v
 import sys, os, re  # , resource
 from os import path
 import numpy as np

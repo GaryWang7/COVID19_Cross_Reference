@@ -3,3 +3,9 @@ Data/InfluenzaA.tsv
 .RData
 .Rhistory
 Slides/Slides.pptx
+*.txt
+*.tsv
+*.xlsx
+Data/Output/iSMART/.idea/workspace.xml
+*.pyc
+Data/Output/GIANA/__pycache__/GIANA4_1.cpython-38.pyc
