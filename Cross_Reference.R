@@ -74,7 +74,7 @@ find_cross_reactive <-function(query_df,target_epitope,cluster_result){
   # Function to find target-specific TCRs that are clustered with TCRs from query_df
   shared_cluster_IDs <- subset(cluster_result, amino_acid %in% query_df$amino_acid)$clusterID
   cross_reactive_cluster<-subset(cluster_result, clusterID %in% shared_cluster_IDs 
-                                 & Epitope ==target_epitope)
+                                 & Epitope == target_epitope)
 }
 #### Read and process raw data #### 
 setwd("Y:/Files/JHU/Labs/Git_Repos/COVID19_Cross_Reference")
@@ -126,6 +126,7 @@ cluster_result <- read.table("Data/Output/iSMART/M1_MART1_TSCAN_iSMART.tsv_clust
                              sep = "\t",
                              header = T)
 colnames(cluster_result)<-c("amino_acid","v_resolved","j_resolved","Epitope","clusterID")
+MART1_Similar_M1<-find_cross_reactive(MART1,'M1',cluster_result)
 LLL_similar_M1<-find_cross_reactive(LLL,'M1',cluster_result) # 121
 KLW_similar_M1<-find_cross_reactive(KLW,'M1',cluster_result) # 67
 YLQ_similar_M1<-find_cross_reactive(YLQ,'M1',cluster_result) # 162
@@ -164,6 +165,7 @@ cluster_result <- read.table("Data/Output/GIANA/M1_MART1_TSCAN_GIANA--RotationEn
                              sep = "\t",
                              header = F)
 colnames(cluster_result)<-c("amino_acid","clusterID","v_resolved","j_resolved","Epitope")
+MART1_Similar_M1<-find_cross_reactive(MART1,'M1',cluster_result)
 LLL_similar_M1<-find_cross_reactive(LLL,'M1',cluster_result) 
 KLW_similar_M1<-find_cross_reactive(KLW,'M1',cluster_result) 
 YLQ_similar_M1<-find_cross_reactive(YLQ,'M1',cluster_result) 
@@ -194,7 +196,6 @@ write.table(
   quote = FALSE,
   col.names=TRUE
 )
-
 
 #####Peptide Similarity Search#######
 # Peptide comparison between TSCAN epitopes and M1 sequence. This returns the distance between 2 peptides
