@@ -1,0 +1,455 @@
+---
+title: "COVID-19 TCR Cross-Reference"
+output: html_notebook
+author: Hanzhi Wang (Gary Wang), Schneck Lab
+time: Aug 2022
+---
+
+In this script, we perform the TCRseq analysis presented in the paper. The analysis includes cross-referencing between databases and TCR analysis on our TCRseq performed on aAPC-expanded T cells.
+
+# Databases
+
+The databases we are referring to are [ImmuneCODE](doi:10.21203/rs.3.rs-51964/v1) and [VDJdb](https://vdjdb.cdr3.net/), which contain TCR information free for download.
+
+# Peptides
+
+The COVID TSCAN peptides we used in this study are shown in the following table:
+
+|   Epitope   | Gene Region |
+|:-----------:|:-----------:|
+|  KLWAQCVQL  |   ORF1ab    |
+|  YLQPRTFLL  |      S      |
+|  ALWEIQQVV  |   ORF1ab    |
+|  LLLDRLNQL  |      N      |
+| YLFDESGEFKL |   ORF1ab    |
+|  LLYDANYFL  |    ORF3a    |
+
+: Table for COVID TSCAN peptides.
+
+We also studied on the following in VDJdb (MART1 and CMV pp65 as a reference)
+
+| Epitope Species & Gene |  Epitope   |
+|:----------------------:|:----------:|
+|     Influenza A-M1     | GILGFVFTL  |
+|         MART1          | ELAGIGILTV |
+|        CMV pp65        | NLVPMVATV  |
+
+# Loading and cleaning data
+
+We have provided default functions for loading and reformatting the TCR data in helper.R file. The adapted scripts for iSMART and immunoMAP are provided in separate files.
+
+```{r, echo=F}
+# Load libraries
+library(Biostrings)
+library(dplyr)
+library(scales)
+library(stringr)
+library(tidyr)
+library(ggthemes)
+library(patchwork)
+library(immunarch)
+library(circlize)
+library(networkD3)
+library(htmlwidgets)
+library(hrbrthemes)
+library(ggalluvial)
+library(tidyverse)
+library(ggpubr)
+library(viridis)
+library(ggseqlogo)
+library(ggVennDiagram)
+source('helper.R')
+```
+
+First we read and format the data (TCRseq samples can be retrieved per request--contact [Jonathan P. Schneck](https://labs.pathology.jhu.edu/schneck/) for access to data).
+
+```{r,message=FALSE}
+#### VDJdb data
+M1<-read.csv("Data/VDJdb_M1_TCR.tsv",sep = "\t")
+MART1<-read.csv("Data/VDJdb_MART1_TCR.tsv",sep = "\t")
+CMV<-read.csv("Data/VDJdb_CMV_TCR.tsv",sep = "\t")
+M1<-unique(rearrange_VDJdb(M1,peptide = "GILGFVFTL"))
+MART1<-unique(rearrange_VDJdb(MART1,peptide = "ELAGIGILTV"))
+CMV<-unique(rearrange_VDJdb(CMV,peptide = "NLVPMVATV"))
+
+#### ImmuneCODE data
+# To maximize our searching ability (in case there are MHC-II CD8+ T cells, which is very rare but possible, as we will see), we combine the MHC-I and MHC-II data.
+ImmuneCODE_raw<-rbind(read.csv("Data/peptide-detail-ci.csv"),
+                      read.csv("Data/peptide-detail-cii.csv"))
+ImmuneCODE<-rearrange_ImmuneCODE(ImmuneCODE_raw)
+
+```
+
+## Extraction of COVID TSCAN peptides
+
+```{r, message = F}
+# Extract TCRs for LLLDRLNQL, KLWAQCVQL, YLQPRTFLL, ALWEIQQVV, YLFDESGEFKL, LLYDANYFL
+LLL<-unique(ImmuneCODE[grep("LLLDRLNQL",ImmuneCODE$Epitope,fixed = T),])
+KLW<-unique(ImmuneCODE[grep("KLWAQCVQL",ImmuneCODE$Epitope,fixed = T),])
+YLQ<-unique(ImmuneCODE[grep("YLQPRTFLL",ImmuneCODE$Epitope,fixed = T),])
+ALW<-unique(ImmuneCODE[grep("ALWEIQQVV",ImmuneCODE$Epitope,fixed = T),])
+YLF<-unique(ImmuneCODE[grep("YLFDESGEFKL",ImmuneCODE$Epitope,fixed = T),]) #0 entries
+LLY<-unique(ImmuneCODE[grep("LLYDANYFL",ImmuneCODE$Epitope,fixed = T),])
+```
+
+## Extraction and organizing of donor TCR data
+
+We extracted data for each donor for a closer look. Also, we referenced healthy control data from a 2018 paper (DeJong et al 2018 JCI insight <https://insight.jci.org/articles/view/121949>) at the end of the analysis.
+
+```{r, message = F}
+# Read and rearrange our data from donor 159 and 519
+Donor_Dat <- Read_Adaptive_TCR('Data/Sort/v1',.all = T, .v2 = F)
+# At the end, we will reference 4 healthy donor data from DeJong et al 2018 JCI insight https://insight.jci.org/articles/view/121949
+HC_Dat<-Read_Adaptive_TCR('Data/HealthyControl/deJong_JCI_Insight_2018',.all = T,.v2 = F)
+```
+
+```{r, message = F}
+# Extract data for each donor. 
+#Note for population that has double positive population, named it as double to be able to use find_cross_reactive function
+d159_LLL <-
+  Donor_Dat %>% subset(sample_name == '159_D14_Sorted_LLL') %>% mutate(Epitope = "159-LLLDRLNQL",
+                                                                        sample_name = "159 LLL+")
+d159_LLL_M1 <-
+  Donor_Dat %>% subset(sample_name == '159_D14_Sorted_LLL+M1') %>% mutate(Epitope = "159-double",
+                                                                        sample_name = "159 LLL+M1+")
+d159_M1 <-
+  Donor_Dat %>% subset(sample_name == '159_D14_Sorted_M1') %>% mutate(Epitope = "159-GILGFVFTL",
+                                                                        sample_name = "159 M1+")
+d519_LLL <-
+  Donor_Dat %>% subset(sample_name == '519_D14_Sorted_LLL') %>% mutate(Epitope = "519-LLLDRLNQL",
+                                                                        sample_name = "519 LLL+")
+d519_LLL_M1 <-
+  Donor_Dat %>% subset(sample_name == '519_D14_Sorted_LLL+M1') %>% mutate(Epitope = "519-double",
+                                                                        sample_name = "519 LLL+M1+")
+d519_M1 <-
+  Donor_Dat %>% subset(sample_name == '519_D14_Sorted_M1') %>% mutate(Epitope = "519-GILGFVFTL",
+                                                                        sample_name = "519 M1+")
+```
+
+Here we tried to find the overlap among samples based on CDR3b sequences, which are labeled as 'amino acid' in Adaptive outputs. Note that finding the shared CDR3b might take some time. The updated identity can be viewed in column 'shared_identity'.
+
+Sidenotes: There were other analyses based on this result, which is not shown in the paper (and that's why we had these chunky codes below). But the analysis results were interesting--We actually found similarity between these M1/LLL specific TCRs with CMV and some cancer-associated TCRs (MART1-TCRs and others retrieved from Adaptive [ImmuneACCESS](https://clients.adaptivebiotech.com/immuneaccess) and [McPAS](http://friedmanlab.weizmann.ac.il/McPAS-TCR/)) based on sequence homology. We didn't have experimental data to support this inclination, but we think this presents a potential for cross-reactivity between SARS-CoV-2 and cancer epitopes, which is worth pursuing with experiments in the future.
+
+```{r, message = F}
+# Combine and annotate the donor data
+Donor_Dat_Ann<- rbind(d159_M1,d159_LLL,d159_LLL_M1,
+                          d519_M1,d519_LLL,d519_LLL_M1)
+Donor_Dat_Ann <- Donor_Dat_Ann %>% Update_Shared_Identity(
+                                       Donor_Dat_Ann,target_key = 'amino_acid') %>% mutate(sample_Epitope = Epitope,
+                                                                                           Epitope = shared_identity)
+```
+
+# Prediction of cross-reactive epitope
+
+We used iSMART to search for similar TCRs between VDJdb-M1 TCRs and SARS-CoV-2 TSCAN TCRs. The reason we employed iSMART is that if we only focused on exact match, there would be too few identical CDR3b sequences. Since this was a prediction to guide following experiments, we resorted to sequence homology algorithms to expand our detection power.
+
+```{r, message = F}
+# Exact match for CDR3b only gives 5 entries
+LLL_M1 <- subset(LLL,amino_acid %in% M1$amino_acid)
+```
+
+We adapted iSMART to Python 3 with some replacements of functions, which does not change or affect the outputs.
+
+```{r, message = F}
+  cluster_result <- read.table("Data/Output/iSMART/CMV_M1_MART1_TSCAN_iSMART.tsv_clusteredCDR3s_7.5.txt",
+                               sep = "\t",
+                               header = T)
+  colnames(cluster_result)<-c("amino_acid","v_resolved","j_resolved","Epitope","clusterID")
+```
+
+By collecting the cluster information, we define similar TCRs to be in the same cluster. YLF is not analyzed since it does not appear in ImmuneCODE database.
+
+```{r, message = F}
+LLL_similar_M1<- subset(M1, amino_acid %in% find_cross_reactive(LLL,'GILGFVFTL',cluster_result)$amino_acid)
+KLW_similar_M1<- subset(M1, amino_acid %in% find_cross_reactive(KLW,'GILGFVFTL',cluster_result)$amino_acid)
+YLQ_similar_M1<- subset(M1, amino_acid %in% find_cross_reactive(YLQ,'GILGFVFTL',cluster_result)$amino_acid)
+ALW_similar_M1<- subset(M1, amino_acid %in% find_cross_reactive(ALW,'GILGFVFTL',cluster_result)$amino_acid)
+LLY_similar_M1<- subset(M1, amino_acid %in% find_cross_reactive(LLY,'GILGFVFTL',cluster_result)$amino_acid)
+```
+
+```{r, message = F}
+# Summarize the numbers of similar TCRs and percentage into a separate file
+summary_epitopes<-c('LLL','KLW','YLQ','ALW','LLY')
+query_combined <- list(LLL,KLW,YLQ,ALW,LLY)
+similar_combined <- list(LLL_similar_M1,
+                        KLW_similar_M1,
+                        YLQ_similar_M1,
+                        ALW_similar_M1,
+                        LLY_similar_M1)
+summary_similar<- data.frame(matrix(nrow= length(summary_epitopes), ncol = 4))
+colnames(summary_similar)<-c("Epitope","ImmuneCODE entries","Similar M1 entries","Similar M1/ImmuneCODE")
+for(i in 1:length(summary_epitopes)){
+  summary_similar$Epitope[i]<-summary_epitopes[i]
+  summary_similar$`ImmuneCODE entries`[i]<-nrow(query_combined[[i]])
+  summary_similar$`Similar M1 entries`[i]<-nrow(similar_combined[[i]])
+  summary_similar$`Similar M1/ImmuneCODE`[i]<-nrow(similar_combined[[i]])/nrow(query_combined[[i]])
+}
+```
+
+```{r}
+# Supplemental Table 2
+summary_similar
+```
+
+# Validation by analyzing TCRseq data
+
+After prediction, we studied cross-reactivity between LLL, LLY and YLQ and Influenza A M1. Based on tetramer-staining results, we selected donor 159 and donor 519 LLL/M1 cells to perform TCRseq (data imported and cleaned above). We used iSMART to compare the similarity between samples.
+
+```{r, message = F}
+# Note, import of donor TCR cluster result is not shown here.
+# Update Donor Dat Ann with cluster result
+Donor_Dat_Ann$clusterID<-''
+for(i in 1: nrow(Donor_Dat_Ann)){
+  aa <- Donor_Dat_Ann$amino_acid[i]
+  sub_clusterID<-unique(subset(cluster_result, amino_acid == aa)$clusterID)
+  if(length(sub_clusterID)==1){Donor_Dat_Ann$clusterID[i]<-sub_clusterID}else{Donor_Dat_Ann$clusterID[i]<--1}
+  if(length(sub_clusterID)>1){Donor_Dat_Ann$clusterID[i]<--2}
+}
+```
+
+## Donor similarity with VDJdb and ImmuneCODE database
+
+```{r, include = F, message = F}
+# Define names of samples
+d159_epi_names<-c('159,LLLDRLNQL','159,GILGFVFTL','159,double') 
+d519_epi_names<-c('519,LLLDRLNQL','519,GILGFVFTL','519,double')
+```
+
+### Donor similarity with LLL database
+
+```{r, message = F}
+# We pulled the donor TCRs and LLL database to see if the donor TCRs are similar to immuneCODE database.
+LLL_CD8_ImmuneCODE <- subset(LLL, Epitope =='ALALLLLDR,GDAALALLLL,LALLLLDRL,LLLDRLNQL,LLLLDRLNQ,LLLLDRLNQL')
+LLL_Donor<-subset(Donor_Dat_Ann, sample_Epitope %in% c('159-LLLDRLNQL','159-double',
+                                                       '519-LLLDRLNQL','519-double'))
+LLL_simImmuneCODE_Donor <- find_cross_reactive(LLL_CD8_ImmuneCODE,'',cluster_result)
+
+LLL_simImmuneCODE_Donor <- subset(LLL_Donor, amino_acid%in% LLL_simImmuneCODE_Donor$amino_acid)# 91 entries out of 1801 entries
+# For output purposes
+LLL_simImmuneCODE_Donor%>% group_by(sample_Epitope)%>% summarize(freq = sum(productive_frequency),
+                                          similar_entries = n())
+```
+
+Below, We can see donor 159 has only 5.5% of LLL specific TCRs that are similar to immuneCODE LLL database and donor 519 has only 5.7%, which suggests a highly heterogeneous immune response!
+
+```{r}
+LLL_simImmuneCODE_Donor%>% group_by(sample_Epitope)%>% summarize(freq = sum(productive_frequency),
+                                          similar_entries = n())
+```
+
+### Donor similarity with M1 database
+
+If we repeat the analysis for similarity with M1, we can see that more than 80% of donor M1 TCRs are clustered with M1 TCRs from VDJdb! In part this is because LLL only has 1000+ online entries and M1 has 3900 online entries (and also limited donor numbers) and we didn't draw any statistical conclusion here. However, we should still highlight the shear comparison of the percentage of similar TCRs.
+
+```{r, message = F}
+M1_Donor<-subset(Donor_Dat_Ann, sample_Epitope %in% c('159-GILGFVFTL',
+                                                      '519-GILGFVFTL')) # Look at M1 only population
+M1_sim_Donor <- find_cross_reactive(M1,'',cluster_result)
+M1_sim_Donor <- subset(M1_sim_Donor, amino_acid%in%M1_Donor$amino_acid)
+M1_sim_Donor <- subset(M1_Donor, amino_acid%in% M1_sim_Donor$amino_acid)# 804 entries out of 1746 entries
+```
+
+```{r}
+M1_sim_Donor%>% group_by(sample_Epitope)%>% summarize(freq = sum(productive_frequency),
+                                          similar_entries = n())
+```
+
+## Overlaps between samples
+
+This code generates output for Figure 4B. This can also be done using ImmuneSeq analyzer provided by Adaptive. The legends might appear over-sized in the notebook format.
+
+```{r, message = F}
+cdr159<-list("LLL+" = d159_LLL$amino_acid,"LLL+M1+" = d159_LLL_M1$amino_acid,"M1+" = d159_M1$amino_acid)
+cdr519<-list("LLL+" = d519_LLL$amino_acid,"LLL+M1+" = d519_LLL_M1$amino_acid,"M1+" = d519_M1$amino_acid)
+cdr159_Venn<-
+  ggVennDiagram(cdr159,edge_lty =0, label_alpha = 0,set_size = 7,label_size = 9,label = 'count')+
+  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF")+
+  labs(title = "Donor 159")+
+  theme(legend.position = "none",plot.title = element_text(color="black", size=20, face="bold",hjust = 0,
+                                                           vjust = -20))
+cdr519_Venn<-
+  ggVennDiagram(cdr519,edge_lty =0, label_alpha = 0,set_size = 7,label_size = 9,label = 'count')+
+  scale_fill_gradient(low = "#F4FAFE", high = "#4981BF")+
+  labs(title = "Donor 519")+
+  theme(legend.position = "none",plot.title = element_text(color="black", size=20, face="bold",hjust = 0,
+                                                           vjust = -20))
+Venn_diags <-ggarrange(cdr159_Venn,cdr519_Venn)
+```
+
+```{r}
+Venn_diags
+```
+
+## Chord plots for VJ gene usages
+
+This section generates Figure 4C. Note that the colors are picked using different palettes, so they might look different from the colors the publication.
+
+The diagrams are saved using the png() argument below, which can also be tweaked to control figure size. Only clones with more than 0.5% productive frequency are shown for visualization purposes.
+
+```{r, message = F}
+# We construct an adjacency matrix to plot VJ gene usage for each sample in the dataset. The matrices are weighted by relative frequency.
+# We use gene name instead of resolved gene 
+Donor_Dat_Ann$v_gene <- lapply(Donor_Dat_Ann$v_resolved,Gene_Name)
+Donor_Dat_Ann$j_gene <- lapply(Donor_Dat_Ann$j_resolved,Gene_Name)
+
+sample_list <-unique(Donor_Dat_Ann$sample_name)
+VJ_matrices<-list()
+for (i in 1:length(sample_list)) {
+  sample_df<-Donor_Dat_Ann[Donor_Dat_Ann$sample_name==sample_list[i],]
+  total_freq<-sum(sample_df$productive_frequency)
+  V_list<-unique(sample_df$v_gene)
+  J_list<-unique(sample_df$j_gene)
+  ad_df<-matrix(0,length(V_list),length(J_list)) #Rows-->V; Columns-->J
+  rownames(ad_df)<-V_list
+  colnames(ad_df)<-J_list
+  for (vgene in V_list) {
+    for (jgene in J_list) {
+      temp_df<-filter(sample_df,v_gene ==vgene & j_gene == jgene)
+      ad_df[vgene,jgene] <-sum(temp_df$productive_frequency)/total_freq*100
+    }
+  }
+  VJ_matrices[[i]]<-ad_df
+}
+names(VJ_matrices)<-sample_list
+# Before we plot, we generate a color map for each specific VJ gene
+VJ_genes<-c(unique(Donor_Dat_Ann$v_gene),unique(Donor_Dat_Ann$j_gene))
+col_VJ<-rand_color( length(VJ_genes),luminosity = 'dark')
+names(col_VJ)<-VJ_genes
+# Plot chord diagram
+for (i in 1:length(sample_list)) {
+  png(file = paste0("Data/Output/ChordDiagram/",sample_list[i],"_VJ",".png"), width = 1800, height = 1800)
+  par(mar=c(0,0,0,0))
+  grid_col <- col_VJ[c(rownames(VJ_matrices[[i]]),colnames(VJ_matrices[[i]]))] 
+  chord_diags<-
+    chordDiagram(VJ_matrices[[i]],
+               annotationTrack = c("grid"),
+               big.gap = 15,
+               small.gap = 1,
+               preAllocateTracks = 2, 
+               annotationTrackHeight = mm_h(c(3, 0.5)),
+               reduce = 5e-3, #Only include clones with >0.5% productive frequency
+               grid.col = grid_col)
+  circos.trackPlotRegion(
+    track.index = 1,
+    panel.fun = function(x, y) {
+      xlim = get.cell.meta.data("xlim")
+      ylim = get.cell.meta.data("ylim")
+      sector.name = get.cell.meta.data("sector.index")
+      circos.text(
+        mean(xlim),
+        ylim[1]-1,
+        sector.name,
+        facing = "clockwise",
+        niceFacing = TRUE,
+        adj = c(0, 0.5),
+        cex = 2,
+        col = "#444541"
+      )
+    },
+    bg.border = NA
+  )
+  #title(main = list(sample_list[i],cex = 0.8), outer = F, line = -1)#
+  #abline(h = 0.015, lty = 2, col = "#00000080",lwd = 3)
+  circos.clear()
+  dev.off()
+}
+
+```
+
+## Barplot of V19 usage
+
+This part generates the plot for Supplemental Figure 5, where we compared V19-01 gene usage in donors and healthy control (from a 2018 paper by DeJong et al. on JCI insight <https://insight.jci.org/articles/view/121949>). The changing gene-name function is not optimized, which might take a long time.
+
+```{r, message = F}
+# We use gene name instead of resolved gene 
+HC_Dat$v_gene <- lapply(HC_Dat$v_resolved,Gene_Name)
+HC_Dat$j_gene <- lapply(HC_Dat$j_resolved,Gene_Name)
+HC_Dat_df<-as.data.frame(lapply(HC_Dat,unlist)) #Unlist the v,j genes
+Donor_Dat_Ann_df<-as.data.frame(lapply(Donor_Dat_Ann,unlist)) # Unlist v,j genes for comparison
+```
+
+```{r, message = F}
+# Define a theme
+# Define theme
+my_theme <- theme(text = element_text(size = 20),
+                  plot.title = element_text(hjust = 0.5),
+                  axis.ticks = element_blank(),
+                  axis.title.x = element_text(margin = margin(10,0,0,0)),
+                  axis.title.y = element_text(margin = margin(0,10,0,0)),
+                  axis.text.x = element_text(margin = margin(5,0,0,0)),
+                  axis.text.y = element_text(margin = margin(0,5,0,0)))
+```
+
+```{r}
+gene<-'V19-01'
+sample<-'519 LLL+'
+Donor_Dat_Ann_df$gene_cat<-ifelse(Donor_Dat_Ann_df$v_gene == gene,
+                        gene,'other')
+HC_Dat_df$gene_cat<-ifelse(HC_Dat_df$v_gene == gene,
+                           gene, 'other')
+cont_tab_sum<-rbind(
+  select(Donor_Dat_Ann_df,'sample_name','gene_cat','productive_frequency'),
+  select(HC_Dat_df,'sample_name','gene_cat','productive_frequency')%>%
+    mutate(sample_name = 'Healthy Control')
+)
+cont_tab_sum$gene_cat<-factor(cont_tab_sum$gene_cat,levels = c('V19-01','other'))
+```
+
+```{r, message = F}
+V19_bar_samplewise<- ggplot(cont_tab_sum) +
+  aes(x = sample_name, fill = gene_cat, weight = productive_frequency) +
+  geom_bar(position = "fill")+
+  ylab("Productive Frequency")+
+  xlab("Samples")+
+  labs(fill = 'V gene')+
+  scale_fill_manual(labels = c("V19-01","Other"),values=c( col_VJ[gene],"#999999"))+
+  scale_y_continuous(labels = scales::percent, breaks = c(0,0.2,0.4,0.6,0.8,1.0))+
+  theme_light()+
+  my_theme
+```
+
+```{r}
+V19_bar_samplewise
+```
+
+### Another direct look at V19-01 usage
+
+This plot is not included in the paper due to limited number of patients (we would have included this plot if we had four or more available donors for TCRseq). It basically conveys the same message at the first glance.
+
+```{r, message = F}
+# Summarize v19-01 usage for all samples
+Donor_v_19_sum<- tibble(subset(Donor_Dat_Ann_df,v_gene=='V19-01') %>% group_by(sample_name)%>% summarize(freq = sum(productive_frequency), v_counts = sum(templates)))
+HC_v_19_sum <- tibble(subset(HC_Dat_df,v_gene=='V19-01') %>% group_by(sample_name)%>% summarize(freq = sum(productive_frequency), v_counts = sum(templates)))
+Donor_v_19_sum$total_count<-tibble(Donor_Dat_Ann_df %>% group_by(sample_name)%>% summarize(total_count = sum(templates)))$total_count
+HC_v_19_sum$total_count<-tibble(HC_Dat_df %>% group_by(sample_name)%>% summarize(total_count = sum(templates)))$total_count
+
+Donor_v_19_sum$group<-factor(c("LLL+","LLL+M1+","M1+","LLL+","LLL+M1+","M1+"))
+HC_v_19_sum$group<-"Control"
+
+v_19_sum<-rbind(Donor_v_19_sum,HC_v_19_sum)
+v_19_sum$group<-factor(v_19_sum$group)
+```
+
+```{r, message = F}
+bar_v_19<-ggplot(data = v_19_sum,
+                 aes(x= group,y = freq*100))+
+  geom_bar(stat = "summary", fun = "mean",position = 'dodge',alpha = 0.3)+
+  geom_jitter(aes(shape = group), 
+              size = 5,
+    position = position_jitterdodge(jitter.width = 1,dodge.width = 0.3),
+  )+
+  scale_shape_manual(values=c(1, 16, 17,18))+
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                labels = trans_format("log10", math_format(10^.x)),
+                limits = c(1,10^2.68),
+                name = "TCRBV19-01 (%)")+
+  
+  theme_classic2()+
+  my_theme+
+  theme(legend.position = "none",
+        axis.title.x = element_blank())
+```
+
+```{r}
+bar_v_19
+```
