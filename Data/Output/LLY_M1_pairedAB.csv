@@ -1,3 +1,0 @@
-complex.id,Gene,amino_acid,v_resolved,j_resolved,Species,MHC.A,MHC.B,MHC.class,Epitope,Epitope.gene,Epitope.species,Reference,Score
-4952,TRA,CAVRSSGGSYIPTF,TRAV1-2*01,TRAJ6*01,HomoSapiens,HLA-A*02:01,B2M,MHCI,GILGFVFTL,M,InfluenzaA,https://www.10xgenomics.com/resources/application-notes/a-new-way-of-exploring-immunity-linking-highly-multiplexed-antigen-recognition-to-immune-repertoire-and-phenotype/#,0
-4952,TRB,CATSTGDSNQPQHF,TRBV15*01,TRBJ1-5*01,HomoSapiens,HLA-A*02:01,B2M,MHCI,GILGFVFTL,M,InfluenzaA,https://www.10xgenomics.com/resources/application-notes/a-new-way-of-exploring-immunity-linking-highly-multiplexed-antigen-recognition-to-immune-repertoire-and-phenotype/#,0
