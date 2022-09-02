@@ -15,6 +15,8 @@ The original package of GIANA can be found at https://github.com/s175573/GIANA.
 Download the Imgt_Human_TRBV.fasta and iSMARTv3_Rev2.py files into the same folder, and run iSMART according to the authors' instructions.
 
 One cmd example: 
+```
 python iSMARTv3_Rev2.py -f tcr_info_iSMART.tsv -t 3 -o./iSMART/
+```
 ## GIANA
 Download all files in /GIANA folder into the same folder, and run the code according to the authors' instructions.
