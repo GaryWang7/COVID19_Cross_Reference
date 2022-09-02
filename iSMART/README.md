@@ -1,5 +1,7 @@
 # Readme
-This folder contains adapted versions of iSMART and GIANA (GIANA is a newer algorithm from the same group that runs faster with comparable clustering performance). Both algorithms has been modified so it can be run in a Windows 10 conda environment with Python 3. We thank the authors for open access to their algorithms. Please refer to their publications for more details.
+This folder contains adapted versions of iSMART and GIANA (GIANA is a newer algorithm from the same group that runs faster with comparable clustering performance). 
+
+Both algorithms has been modified so it can be run in a Windows 10 conda environment with Python 3. We thank the authors for open access to their algorithms. Please refer to their publications for more details.
 
 iSMART: https://aacrjournals.org/clincancerres/article/26/6/1359/268472/Investigation-of-Antigen-Specific-T-Cell-Receptor
 
